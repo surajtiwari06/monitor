@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\RunCheck;
 use App\Models\CustomerSite;
+use App\Models\MonitoringLog;
 use App\Models\Vendor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -127,6 +128,7 @@ class CustomerSiteController extends Controller
         $this->authorize('delete', $customerSite);
 
         $request->validate(['customer_site_id' => 'required']);
+        MonitoringLog::where('customer_site_id', $customerSite->id)->delete();
 
         if ($request->get('customer_site_id') == $customerSite->id && $customerSite->delete()) {
             return redirect()->route('customer_sites.index');
