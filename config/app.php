@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 return [
     // links 
     'websocket_url' => env('WEBSOCKET_URL'),
+    'node_check_interval' => env('NODE_CHECK_INTERVAL'),
     /*
     |--------------------------------------------------------------------------
     | Application Name

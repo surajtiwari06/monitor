@@ -85,14 +85,20 @@ class NotifyUser extends Command
         // Log channel ID for debugging
         $this->info($channelId);
     
-        // Construct the message content
-        $text = "Boondock Monitor\n\n**{$customerSite->name}** ({$customerSite->url})\n\n**Last 5 response times:**\n";
-        foreach ($responseTimes as $responseTime) {
-            $text .= $responseTime->created_at->format('H:i:s').':   '.$responseTime->response_time.' ms'."\n";
-        }
+        // Get the last response time
+        $lastResponseTime = $responseTimes->last();
     
-        // Create a simplified test message
-        // $text1 = 'test';
+        // Determine the current status (this assumes you have a method or attribute to check if the site is active)
+        $isActive = $customerSite->is_active;  // Adjust this line based on how you check the status
+        // $statusText = $isActive ? 'Active' : 'Down';
+        $statusText = 'Down';
+    
+        // Format the time in a human-readable format
+        $formattedTime = $lastResponseTime->created_at->format('l, F j, Y \a\t g:i A');
+    
+        // Construct the message content
+        $text = "\n\n**{$customerSite->name}** \n\n**Status:** {$statusText}\n**Last response time:**\n";
+        $text .= $formattedTime . ': ' . $lastResponseTime->response_time . ' ms' . "\n";
     
         // Define the endpoint for sending messages to the Discord channel
         $endpoint = "https://discord.com/api/v10/channels/{$channelId}/messages";
@@ -113,5 +119,7 @@ class NotifyUser extends Command
             ]);
         }
     }
+    
+    
     
 }

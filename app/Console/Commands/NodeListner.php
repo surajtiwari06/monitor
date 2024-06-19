@@ -8,8 +8,8 @@ use Ratchet\Client\WebSocket;
 use Ratchet\Client\Connector;
 use App\Models\CustomerSite;
 use App\Models\MonitoringLog;
-use MQTT;
 use Carbon\Carbon;
+use React\EventLoop\Factory as LoopFactory;
 
 class NodeListner extends Command
 {
@@ -35,6 +35,22 @@ class NodeListner extends Command
     protected $tempArray = [];
 
     /**
+     * The interval in seconds to check for missed messages.
+     *
+     * @var int
+     */
+    protected $checkInterval;
+
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Set the check interval from the configuration
+        $this->checkInterval = config('app.node_check_interval');
+    }
+
+    /**
      * Execute the console command.
      *
      * @return void
@@ -50,11 +66,14 @@ class NodeListner extends Command
             return;
         }
 
+        // Create an event loop
+        $loop = LoopFactory::create();
+
         // Create a WebSocket connector
-        $connector = new Connector();
+        $connector = new Connector($loop);
 
         // Establish WebSocket connection
-        $connector($websocketUrl)->then(function (WebSocket $conn) {
+        $connector($websocketUrl)->then(function (WebSocket $conn) use ($loop) {
             // Handle incoming messages
             $conn->on('message', function ($msg) {
                 $this->handleMessage($msg);
@@ -64,10 +83,19 @@ class NodeListner extends Command
             $conn->on('close', function ($code = null, $reason = null) {
                 $this->info("Connection closed ({$code} - {$reason})");
             });
+
+            // Periodically check if topics are being received
+            $loop->addPeriodicTimer($this->checkInterval, function () {
+                $this->checkReceivedMessages();
+            });
+
         }, function (\Exception $e) {
             // Handle connection error
             $this->error("Could not connect: {$e->getMessage()}");
         });
+
+        // Run the event loop
+        $loop->run();
     }
 
     /**
@@ -77,70 +105,77 @@ class NodeListner extends Command
      * @return void
      */
     private function handleMessage($message)
-{
-    // Decode the incoming message
-    $messageData = json_decode($message, true);
+    {
+        // Decode the incoming message
+        $messageData = json_decode($message, true);
 
-    // Check if message format is valid
-    if (isset($messageData['topic']) && isset($messageData['message'])) {
-        // Retrieve the topic and message from the incoming message
-        $topic = $messageData['topic'];
-        $message = $messageData['message'];
+        // Check if message format is valid
+        if (isset($messageData['topic']) && isset($messageData['message'])) {
+            // Retrieve the topic and message from the incoming message
+            $topic = $messageData['topic'];
+            $message = $messageData['message'];
 
-        // Retrieve customer site topics from the database
-        $customerSiteTopics = CustomerSite::pluck('topic')->toArray();
+            // Retrieve customer site topics from the database
+            $customerSiteTopics = CustomerSite::pluck('topic')->toArray();
 
-        // Check if the topic matches any of the customer site topics
-        if (in_array($topic, $customerSiteTopics)) {
-            // Retrieve the customer site corresponding to the topic
-            $customerSite = CustomerSite::where('topic', $topic)->first();
+            // Check if the topic matches any of the customer site topics
+            if (in_array($topic, $customerSiteTopics)) {
+                // Retrieve the customer site corresponding to the topic
+                $customerSite = CustomerSite::where('topic', $topic)->first();
 
-            // Retrieve the previous logs for the customer site
-            $previousLogs = MonitoringLog::where('customer_site_id', $customerSite->id)
-                ->latest()
-                ->limit(3)
-                ->get();
+                // Store message in temp array with timestamp
+                $this->tempArray[$topic] = Carbon::now();
 
-            // Check if there are at least 3 previous logs to compare
-            if ($previousLogs->count() >= 3) {
-                // Calculate the differences in consecutive response times
-                $differences = [];
-                $previousResponseTime = null;
-                foreach ($previousLogs as $log) {
-                    if ($previousResponseTime !== null) {
-                        $differences[] = abs($log->response_time - $previousResponseTime);
-                    }
-                    $previousResponseTime = $log->response_time;
-                }
+                // Create a MonitoringLog entry
+                MonitoringLog::create([
+                    'customer_site_id' => $customerSite->id,
+                    'url' => $customerSite->url,
+                    'response_time' => 500, // Placeholder for response time
+                    'status_code' => 200, // Consider 200 for successful message receipt
+                    // 'message' => $message, // Store the message received
+                ]);
 
-                // Calculate the average difference
-                $averageDifference = array_sum($differences) / count($differences);
+                // Update last_check_at for the customer site
+                $customerSite->last_check_at = now();
+                $customerSite->save();
 
-                // Set the response time to the average difference
-                $responseTime = $averageDifference;
-            } else {
-                // If there are less than 3 previous logs, set response time to 500
-                $responseTime = 500;
+                // Print information in the terminal
+                $this->info("Received $message message for customer site topic $topic");
             }
-
-            // Create a MonitoringLog entry
-            MonitoringLog::create([
-                'customer_site_id' => $customerSite->id,
-                'url' => $customerSite->url,
-                'response_time' => $responseTime, // MQTT doesn't have a response time in the same sense
-                'status_code' => 200, // Consider 200 for successful message receipt
-                // 'message' => $message, // Store the message received
-            ]);
-
-            // Update last_check_at for the customer site
-            $customerSite->last_check_at = now();
-            $customerSite->save();
-
-            // Print information in the terminal
-            $this->info("Received 'online' message for customer site topic $topic");
         }
-    } 
-}
+    }
 
- 
+    /**
+     * Periodically check if topics are being received.
+     *
+     * @return void
+     */
+    private function checkReceivedMessages()
+    {
+        $now = Carbon::now();
+        foreach ($this->tempArray as $topic => $lastReceived) {
+            if ($now->diffInSeconds($lastReceived) >= $this->checkInterval) {
+                // Retrieve the customer site corresponding to the topic
+                $customerSite = CustomerSite::where('topic', $topic)->first();
+
+                if ($customerSite) {
+                    // Log response time as 10000 if no message received within checkInterval
+                    MonitoringLog::create([
+                        'customer_site_id' => $customerSite->id,
+                        'url' => $customerSite->url,
+                        'response_time' => 10000,
+                        'status_code' => 500, // Consider 500 for failure to receive a message
+                        // 'message' => 'No message received within the check interval', // Store a note about the lack of message
+                    ]);
+
+                    // Update last_check_at for the customer site
+                    $customerSite->last_check_at = now();
+                    $customerSite->save();
+
+                    // Print information in the terminal
+                    $this->info("No message received for customer site topic $topic within the check interval");
+                }
+            }
+        }
+    }
 }
