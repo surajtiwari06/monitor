@@ -126,6 +126,7 @@ class NodeListner extends Command
                 // Store message in temp array with timestamp
                 $this->tempArray[$topic] = Carbon::now();
 
+                if ($messageData['message'] == 'online') {
                 // Create a MonitoringLog entry
                 MonitoringLog::create([
                     'customer_site_id' => $customerSite->id,
@@ -134,6 +135,18 @@ class NodeListner extends Command
                     'status_code' => 200, // Consider 200 for successful message receipt
                     // 'message' => $message, // Store the message received
                 ]);
+                $customerSite->is_online = '1';
+            }
+            else if ($messageData['message'] == 'offline') {
+                MonitoringLog::create([
+                    'customer_site_id' => $customerSite->id,
+                    'url' => $customerSite->url,
+                    'response_time' => 10000, // Placeholder for response time
+                    'status_code' => 500, // Consider 200 for successful message receipt
+                    // 'message' => $message, // Store the message received
+                ]);
+                $customerSite->is_online = '0';
+            }
 
                 // Update last_check_at for the customer site
                 $customerSite->last_check_at = now();

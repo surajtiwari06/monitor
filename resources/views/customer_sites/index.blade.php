@@ -34,7 +34,7 @@
                     <tr>
                         <th class="text-center">{{ __('app.table_no') }}</th>
                         <th>{{ __('customer_site.name') }}</th>
-                        <th>{{ __('customer_site.url') }}</th>
+                        <th> url or topic </th>
                         <th>{{ __('group') }}</th>
                         <th class="text-center">{{ __('app.status') }}</th>
                         <th class="text-center">{{ __('app.action') }}</th>
@@ -45,8 +45,14 @@
                     <tr>
                         <td class="text-center">{{ $customerSites->firstItem() + $key }}</td>
                         <td>{{ $customerSite->name }}</td>
+                        @if($customerSite->vendor->name == 'Nodes')
+                        <td>{{ $customerSite->topic }}</td>
+                        
+                        @else
                         <td><a target="_blank" href="{{ $customerSite->url }}">{{ $customerSite->url }}</a></td>
-                        <td>{{ $customerSite->vendor->name }}</td>
+                        
+                        @endif
+                       <td>{{ $customerSite->vendor->name }}</td>
                         <td class="text-center">{{ $customerSite->is_active }}</td>
                         <td class="text-center">
                             @can('view', $customerSite)

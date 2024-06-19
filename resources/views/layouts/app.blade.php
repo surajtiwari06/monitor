@@ -45,6 +45,10 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ route('profile.show') }}">{{ __('user.profile') }}</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link"><b>Time Zone: {{ config('app.timezone') }}</b></a>
+                            </li>
+                            
                         @endauth
                     </ul>
 

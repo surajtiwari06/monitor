@@ -35,12 +35,15 @@ class RunCheck implements ShouldQueue
                 ->connectTimeout(20)
                 ->get($customerSite->url);
             $statusCode = $response->status();
+            $customerSite->is_online = '1';
         } catch (ConnectionException $e) {
             Log::channel('daily')->error($e);
             $statusCode = 500;
+            $customerSite->is_online = '0';
         } catch (RequestException $e) {
             Log::channel('daily')->error($e);
             $statusCode = 500;
+            $customerSite->is_online = '0';
         }
         $end = microtime(true);
         $responseTime = round(($end - $start) * 1000); // Calculate response time in milliseconds

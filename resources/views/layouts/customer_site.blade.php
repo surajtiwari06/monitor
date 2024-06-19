@@ -27,7 +27,11 @@
                 <table class="table table-sm">
                     <tbody>
                         <tr><td>{{ __('customer_site.name') }}</td><td>{{ $customerSite->name }}</td></tr>
+                        @if($customerSite->vendor->name == 'Nodes')
+                        <tr><td>Mqtt Topic</td><td><b>{{ $customerSite->topic }}</b></td></tr>
+                        @else
                         <tr><td>{{ __('customer_site.url') }}</td><td><a target="_blank" href="{{ $customerSite->url }}">{{ $customerSite->url }}</a></td></tr>
+                        @endif
                         <tr><td>{{ __('vendor.vendor') }}</td><td>{{ $customerSite->vendor->name }}</td></tr>
                         <tr><td>{{ __('app.status') }}</td><td>{{ $customerSite->is_active }}</td></tr>
                         <tr>

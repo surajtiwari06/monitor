@@ -80,8 +80,11 @@
                             @endif
                             <tr>
                                 <td>{{ __('app.status') }}</td>
-                                <td>{{ $customerSite->is_active ? 'Online' : 'Offline' }}</td>
+                                <td style="color: {{ $customerSite->is_online ? 'green' : 'red' }}">
+                                    {{ $customerSite->is_online ? 'Online' : 'Offline' }}
+                                </td>
                             </tr>
+                            
                             <tr>
                                 <td>{{ __('Average Response Time') }}</td>
                                 <td>{{ $averageResponseTimes[$customerSite->id] ? round($averageResponseTimes[$customerSite->id] / 1000, 2) . ' s' : 'No data' }}</td>
