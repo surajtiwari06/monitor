@@ -19,9 +19,10 @@ use Illuminate\Support\Facades\Route;
 Route::view('/', 'auth.login')->middleware('guest');
 
 Auth::routes(['register' => false, 'reset' => false]);
-
+Route::get('/status', [MonitoringController::class, 'status'])->name('status');
 Route::group(['middleware' => ['auth']], function () {
     Route::get('/home', [MonitoringController::class, 'index'])->name('home');
+   
     // report 
     Route::get('/send-report', [MonitoringController::class, 'sendReport'])->name('sendReport');
    
